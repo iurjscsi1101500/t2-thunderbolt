@@ -1,5 +1,17 @@
 # Thunderbolt T2 Resume Fix Module
 
+This fixes a Thunderbolt resume ordering problem seen on Apple T2 Macs.
+Without the patch, the Thunderbolt driver can miss the native PCIe ports
+that need device links back to the NHI, leading to the warning
+`device links to tunneled native ports are missing!` and contributing to
+slow or fragile resume behavior.
+
+The fix extends `tb_apple_add_links()` so integrated T2 Thunderbolt
+controllers are handled explicitly: when there is no upstream PCIe port,
+the driver scans root ports on the same bus as the NHI, matches Apple
+ACPI `TRP*` ports, and creates the missing device links so Thunderbolt
+tunnels can be re-established in the right order after sleep.
+
 This repository packages the patched Linux Thunderbolt driver as an
 out-of-tree kernel module so it can be built and installed without
 rebuilding the whole kernel.
@@ -18,12 +30,6 @@ make
 By default this builds against the running kernel via
 `/lib/modules/$(uname -r)/build`.
 
-To build against a different kernel tree:
-
-```sh
-make KDIR=/path/to/kernel/build
-```
-
 ## Install
 
 ```sh
@@ -38,9 +44,5 @@ device is idle, or reboot into the same kernel version.
 
 ## Notes
 
-- This repository contains a copy of `drivers/thunderbolt` from the
-  matching kernel tree plus the local T2 fix.
-- For the running `6.19.9` kernel, build and install should work as long
-  as the target kernel headers/build tree are present.
 - If module signature enforcement or Secure Boot is active, the installed
   module may still be rejected unless it is signed with a trusted key.
