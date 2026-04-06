@@ -1,48 +1,51 @@
-# Thunderbolt T2 Resume Fix Module
+# Apple T2 Resume Fixes
 
-This fixes a Thunderbolt resume ordering problem seen on Apple T2 Macs.
-Without the patch, the Thunderbolt driver can miss the native PCIe ports
-that need device links back to the NHI, leading to the warning
-`device links to tunneled native ports are missing!` and contributing to
-slow or fragile resume behavior.
+This repository contains the currently relevant Apple T2 Thunderbolt and
+PCIe resume fixes as separate patches.
 
-The fix extends `tb_apple_add_links()` so integrated T2 Thunderbolt
-controllers are handled explicitly: when there is no upstream PCIe port,
-the driver scans root ports on the same bus as the NHI, matches Apple
-ACPI `TRP*` ports, and creates the missing device links so Thunderbolt
-tunnels can be re-established in the right order after sleep.
+The original Thunderbolt patch is still useful, but it is not the fix
+for the long secondary-CPU bringup times after S3 resume. The actual
+resume-time fix is a `pcieport` change that forces the Apple T2
+Thunderbolt root ports to use INTx instead of MSI/MSI-X for PCIe port
+services.
 
-This repository packages the patched Linux Thunderbolt driver as an
-out-of-tree kernel module so it can be built and installed without
-rebuilding the whole kernel.
+## Patches
 
-The current patch changes `tb_apple_add_links()` in
-`drivers/thunderbolt/tb.c` to handle integrated Thunderbolt on Apple T2
-systems by creating device links for `TRP*` ACPI-named root ports on the
-same PCI bus as the NHI.
+- `patches/0001-thunderbolt-add-device-links-for-integrated-Apple-T2-NHI.patch`
+  Companion fix for integrated T2 Thunderbolt NHIs. It creates the
+  missing device links for ACPI `TRP*` root ports so the warning
+  `device links to tunneled native ports are missing!` goes away and
+  Thunderbolt tunnel ordering is correct after sleep.
+- `patches/0002-PCI-portdrv-use-INTx-for-Apple-T2-Thunderbolt-root-port-services.patch`
+  Resume fix for Apple T2 Macs. It matches ACPI `TRP*` root ports and
+  forces PCIe port services onto INTx instead of MSI/MSI-X. This is the
+  change that eliminates the multi-second `smpboot` delays after S3
+  resume.
 
-## Build
+## Status
+
+- Tested on MacBookAir9,1.
+- `0002` fixes the slow `smpboot` phase seen after resume.
+- `0001` is a separate companion patch and should not be treated as the
+  primary resume fix.
+- The older PCI quirk that tried to keep the ports in D0 was dropped.
+
+## Quick Test
+
+If you only want to test the Thunderbolt companion patch as a module:
 
 ```sh
 make
-```
-
-By default this builds against the running kernel via
-`/lib/modules/$(uname -r)/build`.
-
-## Install
-
-```sh
 sudo make install
 ```
 
-This installs `thunderbolt.ko` to
-`/lib/modules/$(uname -r)/updates/thunderbolt.ko` and runs `depmod -a`.
+This builds and installs `thunderbolt.ko` from `drivers/thunderbolt/`
+against the running kernel.
 
-To load the updated module, unload and reload `thunderbolt` when the
-device is idle, or reboot into the same kernel version.
+For the actual resume fix in `0002`, a kernel rebuild is required
+because it changes `drivers/pci/pcie/portdrv.c`.
 
-## Notes
+## Upstream
 
-- If module signature enforcement or Secure Boot is active, the installed
-  module may still be rejected unless it is signed with a trusted key.
+Both fixes are available as mail-ready patch files and can be used for
+upstream submission independently.
