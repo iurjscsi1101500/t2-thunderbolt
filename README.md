@@ -2,7 +2,7 @@ This repository contains Apple T2 Thunderbolt and PCIe fixes.
 
 ## Patches
 
-- `patches/0001-thunderbolt-add-device-links-for-integrated-Apple-T2-NHI.patch`
+- `patches/0001-thunderbolt-add-device-links-for-integrated-Apple-T2.patch`
   Fix for integrated T2 Thunderbolt NHIs. It creates the
   missing device links for ACPI `TRP*` root ports so the warning
   `device links to tunneled native ports are missing!` goes away and
